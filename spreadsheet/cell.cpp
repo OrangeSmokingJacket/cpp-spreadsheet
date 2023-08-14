@@ -23,7 +23,7 @@ Cell::Value Cell::TextCell::GetValue(Sheet&) const
 	if (text.empty())
 		return text;
 
-	if (text[0] == '\'')
+	if (text[0] == ESCAPE_SIGN)
 		return text.substr(1);
 	else
 		return text;
@@ -56,6 +56,7 @@ std::vector<Position> Cell::NumberCell::GetReferencedCells() const
 Cell::Value Cell::FormulaCell::GetValue(Sheet& sheet) const
 {
 	auto value = formula->Evaluate(sheet);
+
 	if (std::holds_alternative<double>(value))
 		return std::get<double>(value);
 	else
@@ -63,7 +64,7 @@ Cell::Value Cell::FormulaCell::GetValue(Sheet& sheet) const
 }
 std::string Cell::FormulaCell::GetText() const
 {
-	return "=" + formula->GetExpression();
+	return FORMULA_SIGN + formula->GetExpression();
 }
 std::vector<Position> Cell::FormulaCell::GetReferencedCells() const
 {
@@ -75,13 +76,13 @@ void Cell::Set(std::string text)
 	std::unique_ptr<CellContent> prev_content(content.release());
 	if (text.empty())
 	{
-		content = std::unique_ptr<CellContent>(new CellContent());
+		content = std::make_unique<CellContent>(CellContent());
 	}
-	else if (text[0] == '=' && text.length() != 1)
+	else if (text[0] == FORMULA_SIGN && text.length() != 1)
 	{
 		try
 		{
-			content = std::unique_ptr<CellContent>(new FormulaCell(ParseFormula(text.substr(1))));
+			content = std::make_unique<CellContent>(FormulaCell(ParseFormula(text.substr(1))));
 		}
 		catch (const std::exception& exc)
 		{
@@ -93,12 +94,13 @@ void Cell::Set(std::string text)
 	{
 			char* end;
 			double value = std::strtod(text.data(), &end);
-			if (*end == '\0')
-				content = std::unique_ptr<CellContent>(new NumberCell(value));
+			if (*end == text.back())
+				content = std::make_unique<CellContent>(NumberCell(value));
 			else
-				content = std::unique_ptr<CellContent>(new TextCell(std::move(text)));
+				content = std::make_unique<CellContent>(TextCell(std::move(text)));
 	}
 	prev_content.release();
+	cash = {};
 }
 void Cell::Clear()
 {

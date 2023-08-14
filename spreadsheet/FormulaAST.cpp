@@ -150,24 +150,27 @@ namespace ASTImpl
             double Evaluate(const SheetInterface& sheet) const override
             {
                 double result = 0;
+                double lhs_value = lhs->Evaluate(sheet);
+                double rhs_value = rhs->Evaluate(sheet);
+
                 switch (type)
                 {
                 case Type::Add:
-                    result = lhs->Evaluate(sheet) + rhs->Evaluate(sheet);
+                    result = lhs_value + rhs_value;
                     break;
                 case Type::Subtract:
-                    result = lhs->Evaluate(sheet) - rhs->Evaluate(sheet);
+                    result = lhs_value - rhs_value;
                     break;
                 case Type::Multiply:
-                    result = lhs->Evaluate(sheet)* rhs->Evaluate(sheet);
+                    result = lhs_value * rhs_value;
                     break;
                 case Type::Divide:
-                    double rhs_value = rhs->Evaluate(sheet);
                     if (rhs_value < std::numeric_limits<double>::epsilon() && rhs_value > -std::numeric_limits<double>::epsilon())
                         throw FormulaError(FormulaError::Category::Div0);
                     else
-                        return lhs->Evaluate(sheet) / rhs_value;
+                        return lhs_value / rhs_value;
                 }
+
                 if (result == std::numeric_limits<double>::infinity() || result == -std::numeric_limits<double>::infinity())
                     throw FormulaError(FormulaError::Category::Div0);
                 else
@@ -210,12 +213,14 @@ namespace ASTImpl
 
             double Evaluate(const SheetInterface& sheet) const override
             {
+                double value = operand->Evaluate(sheet);
+
                 switch (type)
                 {
                 case Type::UnaryMinus:
-                    return -operand->Evaluate(sheet);
+                    return -value;
                 default:
-                    return operand->Evaluate(sheet);
+                    return value;
                 }
             }
 
