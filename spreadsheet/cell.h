@@ -2,16 +2,21 @@
 
 #include "common.h"
 #include "formula.h"
+#include "sheet.h"
 
-#include <functional>
-#include <unordered_set>
+#include <forward_list>
+#include <optional>
 
 class Sheet;
 
-class Cell : public CellInterface {
+class Cell : public CellInterface
+{
 public:
-    Cell(Sheet& sheet);
-    ~Cell();
+    Cell(Sheet& sheet) : sheet_ref(sheet), content(std::unique_ptr<CellContent>(new CellContent())) { }
+    ~Cell()
+    {
+        content.release();
+    }
 
     void Set(std::string text);
     void Clear();
@@ -20,17 +25,54 @@ public:
     std::string GetText() const override;
     std::vector<Position> GetReferencedCells() const override;
 
-    bool IsReferenced() const;
+    void ClearCash();
 
 private:
-    class Impl;
-    class EmptyImpl;
-    class TextImpl;
-    class FormulaImpl;
+    class CellContent
+    {
+    public:
+        virtual Value GetValue(Sheet& sheet) const;
+        virtual std::string GetText() const;
+        virtual std::vector<Position> GetReferencedCells() const;
+    };
+    class TextCell : public CellContent
+    {
+    public:
+        explicit TextCell(std::string&& text) : text(text) {}
 
-    std::unique_ptr<Impl> impl_;
+        Value GetValue(Sheet& sheet) const override;
+        std::string GetText() const override;
+        std::vector<Position> GetReferencedCells() const override;
 
-    // Добавьте поля и методы для связи с таблицей, проверки циклических 
-    // зависимостей, графа зависимостей и т. д.
+    private:
+        std::string text;
+    };
+    class NumberCell : public CellContent
+    {
+    public:
+        explicit NumberCell(double v) : value(v) {}
 
+        Value GetValue(Sheet& sheet) const override;
+        std::string GetText() const override;
+        std::vector<Position> GetReferencedCells() const override;
+
+    private:
+        double value;
+    };
+    class FormulaCell : public CellContent
+    {
+    public:
+        explicit FormulaCell(std::unique_ptr<FormulaInterface> f) : formula(std::move(f)) {}
+
+        Value GetValue(Sheet& sheet) const override;
+        std::string GetText() const override;
+        std::vector<Position> GetReferencedCells() const override;
+
+    private:
+        std::unique_ptr<FormulaInterface> formula;
+    };
+
+    Sheet& sheet_ref;
+    std::unique_ptr<CellContent> content;
+    mutable std::optional<CellInterface::Value> cash;
 };
